@@ -1,55 +1,67 @@
-# Script de collecte d'informations système et envoi SFTP sécurisé
+# System Information Collection and Secure SFTP Transfer Script
 
 ## Description
-Ce projet propose un script Python multiplateforme (Windows et Linux) qui collecte discrètement plusieurs informations sur la machine locale, génère un rapport temporaire, puis l'envoie de manière sécurisée vers un serveur distant via SFTP. Le script est conçu pour s'exécuter en **mode silencieux**, c'est-à-dire sans aucune sortie visible à l'écran, afin de pouvoir fonctionner en arrière-plan.
 
-## Fonctionnement du script
-Le script effectue les étapes suivantes :
-1. **Collecte d'informations système** : Récupération du nom de machine (*hostname*), de l'utilisateur courant, des adresses IP assignées, de la liste des processus en cours, des informations sur les disques (taille totale et espace libre), de la quantité de mémoire RAM et de la liste des logiciels installés sur la machine.
-2. **Génération d'un rapport** : Les données collectées sont formatées et écrites dans un fichier texte temporaire (par exemple `rapport_systeme.txt`) stocké dans le répertoire temporaire de l'OS (comme `%TEMP%` sous Windows ou `/tmp` sous Linux).
-3. **Transfert SFTP sécurisé** : Le fichier de rapport est ensuite transmis au serveur SFTP spécifié. La connexion s'effectue de manière sécurisée en utilisant SSH (port 22 par défaut) avec vérification de l'identité du serveur (voir section Sécurité ci-dessous).
-4. **Nettoyage** : Une fois le fichier envoyé avec succès, le fichier temporaire local est supprimé du système pour ne laisser aucune trace.
+This project provides a cross-platform Python script (Windows and Linux) that discreetly gathers various pieces of information from the local machine, generates a temporary report, and then securely sends it to a remote server via SFTP. The script is designed to run in **silent mode**, meaning no visible output on the screen, allowing it to operate in the background.
 
-## Paramètres SFTP à configurer
-Certains paramètres doivent être ajustés dans le script avant son exécution afin de correspondre à votre environnement :
-- **SFTP_HOST** : le nom d'hôte ou l'adresse IP du serveur SFTP de destination.
-- **SFTP_PORT** : le port TCP du service SFTP (22 par défaut pour SSH).
-- **SFTP_USERNAME** : le nom d'utilisateur pour la connexion au serveur SFTP.
-- **SFTP_PASSWORD** : le mot de passe de l'utilisateur SFTP.
-- **REMOTE_PATH** : le chemin complet (sur le serveur) où le fichier de rapport doit être déposé. Par exemple, `/home/user/rapports/rapport_systeme.txt`.
+## Script Workflow
 
-Ces informations d'identification et de configuration sont stockées en tête de script dans des variables faciles à repérer et à modifier. **Important** : évitez de laisser ces informations sensibles (comme le mot de passe) dans le dépôt GitHub public. Vous pouvez utiliser un fichier de configuration séparé ou des variables d'environnement pour plus de sécurité si nécessaire.
+The script performs the following steps:
 
-## Sécurité SSH renforcée (vérification de la clé du serveur)
-Ce script intègre une mesure de sécurité supplémentaire pour prévenir les attaques de type **Man-in-the-Middle (MITM)** lors de la connexion SFTP. Avant d'envoyer le mot de passe ou le fichier, il vérifie que la clé publique du serveur SFTP correspond à celle attendue.
+1. **System Information Collection**: Retrieves the hostname, current user, assigned IP addresses, list of running processes, disk information (total size and free space), RAM details, and the list of installed software.
+2. **Report Generation**: The collected data is formatted and written to a temporary text file (e.g., `system_report.txt`) stored in the OS's temporary directory (such as `%TEMP%` on Windows or `/tmp` on Linux).
+3. **Secure SFTP Transfer**: The report file is then securely transmitted to the specified SFTP server. The connection uses SSH (port 22 by default) with server identity verification (see Security section below).
+4. **Cleanup**: Once the file is successfully sent, the local temporary file is deleted to leave no trace.
 
-- **Clé publique connue à l'avance** : Il est supposé que l'empreinte (empreinte numérique, hash) de la clé publique du serveur est connue et codée en dur dans le script (variable `EXPECTED_HOSTKEY_FINGERPRINT`). Cette empreinte est au format SHA-256 (format par défaut d'OpenSSH), généralement représentée sous forme Base64 (une chaîne de caractères).
-- **Comparaison d'empreinte** : Lors de la connexion, le script récupère la clé publique présentée par le serveur et calcule son empreinte SHA-256. Il la compare ensuite avec l'empreinte attendue fournie dans la configuration. Si les deux ne correspondent pas exactement, la connexion est immédiatement interrompue **et le fichier n'est pas envoyé**, évitant ainsi de potentiellement transmettre des données à un serveur non autorisé.
-- **Obtention de l'empreinte du serveur** : Pour configurer `EXPECTED_HOSTKEY_FINGERPRINT`, vous pouvez obtenir l'empreinte de la clé publique de votre serveur SFTP de plusieurs manières sécurisées. Par exemple, depuis une session shell sûre sur le serveur lui-même, vous pouvez utiliser la commande OpenSSH suivante (en adaptant le chemin vers la clé adéquate) :
+## SFTP Configuration Parameters
 
-    ```bash
-    ssh-keygen -l -f /etc/ssh/ssh_host_rsa_key.pub -E sha256
-    ```
+The following parameters must be configured in the script prior to execution to match your environment:
 
-  Cette commande affichera l'empreinte SHA-256 de la clé publique du serveur (après le préfixe "`SHA256:`"). Vous pouvez aussi utiliser `ssh-keyscan` depuis une machine cliente de confiance, puis calculer l'empreinte via `ssh-keygen`. L'empreinte obtenue (la suite de caractères Base64) doit être recopiée dans le script.
+* **SFTP\_HOST**: Hostname or IP address of the destination SFTP server.
+* **SFTP\_PORT**: TCP port of the SFTP service (default is 22 for SSH).
+* **SFTP\_USERNAME**: Username for SFTP server login.
+* **SFTP\_PASSWORD**: Password for the SFTP user.
+* **REMOTE\_PATH**: Full path on the server where the report file should be uploaded. For example: `/home/user/reports/system_report.txt`.
 
-- **Bibliothèque Paramiko** : Le script utilise la bibliothèque Python [Paramiko](https://docs.paramiko.org/) pour établir la connexion SSH/SFTP. La vérification de l'empreinte se fait manuellement dans le code en utilisant les fonctions de Paramiko (récupération de la clé du serveur et calcul de son hash SHA-256) afin de la comparer à la valeur attendue. Si vous exécutez ce script, assurez-vous d'avoir installé Paramiko au préalable (`pip install paramiko`).
+These credentials and configuration values are stored at the top of the script in easily identifiable variables. **Important**: Do not store sensitive information (like passwords) in a public GitHub repository. Consider using a separate configuration file or environment variables for enhanced security.
 
-## Suppression du fichier local
-Le fichier temporaire contenant le rapport (`rapport_systeme.txt`) est supprimé du système local une fois l'envoi terminé. Cette suppression est effectuée dans tous les cas de figure possibles (dans un bloc `finally` en Python) pour s'assurer que même en cas d'erreur lors de l'envoi, le script tente de ne pas laisser de fichier sensible sur la machine. Cette précaution contribue à la discrétion du script en évitant qu'un utilisateur local ne découvre le rapport.
+## Enhanced SSH Security (Server Key Verification)
 
-## Utilisation du script
-Pour utiliser le script, il suffit de le lancer sur la machine à auditer :
+The script includes an additional security measure to prevent **Man-in-the-Middle (MITM)** attacks during the SFTP connection. Before transmitting the password or file, it verifies that the SFTP server’s public key matches the expected one.
 
-- Sur Windows, vous pouvez exécuter `python script.py` (avec Python 3 installé). Pour un mode totalement silencieux, il est possible d'utiliser `pythonw.exe` ou d'en faire un service/une tâche planifiée afin qu'aucune console ne s'ouvre.
-- Sur Linux, exécutez `python3 script.py` (en veillant à ce que le script soit exécutable ou en appelant explicitement l'interpréteur Python). Aucune sortie ne sera affichée à l'écran. Vous pouvez planifier ce script via `cron` ou un autre planificateur pour des exécutions périodiques discrètes.
+* **Known Public Key Fingerprint**: It is assumed that the fingerprint (digital hash) of the server’s public key is known and hardcoded in the script (`EXPECTED_HOSTKEY_FINGERPRINT`). This fingerprint is in SHA-256 format (OpenSSH default), typically Base64-encoded.
 
-Une fois exécuté, le script créera le rapport, le transférera via SFTP puis se terminera. Si tout est correctement configuré, le fichier de rapport devrait se trouver sur le serveur SFTP au chemin spécifié, et aucune trace locale ne subsiste en dehors des éventuels journaux du système (si le script a été lancé via une tâche planifiée, par exemple).
+* **Fingerprint Comparison**: During connection, the script retrieves the server’s presented public key and calculates its SHA-256 fingerprint. It then compares it with the expected value. If they do not match exactly, the connection is immediately aborted **and the file is not sent**, thereby avoiding potential data leaks to unauthorized servers.
 
-## Structure du dépôt GitHub
-Ce dépôt contient les fichiers suivants :
-- **script.py** : Le script Python principal décrivant l'ensemble du processus (collecte d'infos, transfert SFTP). Il est abondamment commenté pour expliquer chaque étape.
-- **README.md** : Le présent document explicatif décrivant le fonctionnement du script, les paramètres à configurer, les mesures de sécurité mises en place, et les instructions d'utilisation.
-- **.gitignore** : Fichier listant les éléments à ignorer dans le dépôt Git (par exemple, le fichier de rapport temporaire s'il était généré localement, les fichiers de cache Python `__pycache__`, etc.). Cela permet d'éviter de compromettre des informations sensibles ou inutiles dans le contrôle de version.
+* **Getting the Server Fingerprint**: To set `EXPECTED_HOSTKEY_FINGERPRINT`, you can retrieve the server's public key fingerprint securely from a trusted session on the server using:
+
+  ```bash
+  ssh-keygen -l -f /etc/ssh/ssh_host_rsa_key.pub -E sha256
+  ```
+
+  This command outputs the server’s SHA-256 fingerprint (following the "`SHA256:`" prefix). You can also use `ssh-keyscan` from a trusted client machine and calculate the fingerprint using `ssh-keygen`. Copy the resulting Base64 string into your script.
+
+* **Paramiko Library**: The script uses the Python [Paramiko](https://docs.paramiko.org/) library to establish the SSH/SFTP connection. Fingerprint verification is performed manually in the code by retrieving the server key and computing its SHA-256 hash for comparison. Ensure Paramiko is installed beforehand (`pip install paramiko`).
+
+## Local File Deletion
+
+The temporary report file (`system_report.txt`) is deleted from the local system after transfer. This deletion is handled in a `finally` block in Python to ensure that even if an error occurs during upload, the script will still attempt to remove the file. This contributes to the script’s discretion by minimizing the chance a local user could discover the report.
+
+## Using the Script
+
+To use the script, simply execute it on the machine to be audited:
+
+* On Windows, run `python script.py` (requires Python 3). For full silent mode, you can use `pythonw.exe` or set it up as a scheduled task/service to avoid opening a console window.
+* On Linux, execute `python3 script.py` (ensure the script is executable or explicitly call the Python interpreter). No output will appear on screen. You can schedule this script using `cron` or another scheduler for periodic background runs.
+
+Once executed, the script will generate the report, transfer it via SFTP, and then terminate. If everything is configured correctly, the report file will be found on the SFTP server at the specified path, and no local trace remains except for potential system logs (if launched via scheduled task, for example).
+
+## GitHub Repository Structure
+
+This repository contains the following files:
+
+* **script.py**: The main Python script that handles information gathering and SFTP transfer. It includes extensive comments explaining each step.
+* **README.md**: This documentation file describing how the script works, configuration parameters, security measures, and usage instructions.
+* **.gitignore**: Lists items to ignore in the Git repository (e.g., the temporary report file, Python cache directories like `__pycache__`, etc.). This helps avoid leaking sensitive or unnecessary files through version control.
 
 ***By Micka Delcato***
